@@ -12,11 +12,11 @@ from .core import ZONE, ROOT, DATA
 from .shopee import ShopeeSession, shared_url
 
 STYLE = '''
-QMainWindow, QWidget#root { background:#f4f3ef; color:#252a30; }
+QMainWindow, QWidget#root { background:#eef2f6; color:#172b3a; }
 QWidget { font-family:"Avenir Next"; font-size:13px; }
 QLabel#title { font-size:28px; font-weight:700; }
 QLabel#subtitle { color:#68717b; }
-QFrame#section { background:#ffffff; border-radius:12px; }
+QFrame#section { background:#ffffff; border:1px solid #dce4eb; border-radius:14px; }
 QLabel#sectionTitle { font-size:17px; font-weight:600; }
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateTimeEdit {
  background:#fafaf8; border:1px solid #d8dcd9; border-radius:6px;
@@ -25,15 +25,24 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateTimeEdit {
 QLineEdit:focus, QComboBox:focus, QDateTimeEdit:focus { border:1px solid #d85b35; }
 QPushButton { background:#e7e9e5; color:#303a42; border:0; border-radius:6px; padding:11px 15px; font-weight:600; }
 QPushButton:hover { background:#dce0da; }
-QPushButton#primary { background:#c74e2b; color:white; }
-QPushButton#primary:hover { background:#b34324; }
+QPushButton#primary { background:#087f8c; color:white; }
+QPushButton#primary:hover { background:#066672; }
+QPushButton#navigation { background:#ffffff; border:1px solid #dce4eb; text-align:left; padding:12px 18px; }
+QPushButton#navigation:hover { background:#e2f2f4; border-color:#087f8c; }
+QPushButton#stop { background:#fff0ed; color:#aa3928; }
+QLabel#clock { background:#172b3a; color:#ffffff; border-radius:8px; padding:10px 16px; font-family:Menlo; }
+QCheckBox { spacing:9px; padding:5px 0; }
+QCheckBox::indicator { width:17px; height:17px; }
+QScrollBar:vertical { background:transparent; width:8px; }
+QScrollBar::handle:vertical { background:#bac8d3; border-radius:4px; min-height:35px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 QPushButton:disabled { color:#919993; background:#eceeea; }
 QPushButton#primary:disabled { color:#919993; background:#eceeea; }
 QLabel#status { background:#f6e8de; border-radius:6px; padding:9px; color:#8c3d22; font-weight:600; }
 QLabel#preview { background:#202830; color:#b7c3cc; border-radius:8px; }
 QPlainTextEdit { background:#202830; color:#dbe3e8; border:0; border-radius:8px; padding:10px; font-family:Menlo; font-size:11px; }
 QScrollArea { border:0; background:transparent; }
-QSplitter::handle { background:#f4f3ef; width:18px; }
+QSplitter::handle { background:#eef2f6; width:18px; }
 '''
 
 
@@ -66,19 +75,27 @@ class Window(QMainWindow):
         self.last_frame = None
         self.active = False
         self.closing = False
-        self.setWindowTitle('Flashsale Lokal | Shopee 0.6.5')
+        self.setWindowTitle('Flashsale Lokal | Pratinjau GUI — backend 0.6.5')
         self.resize(1240, 900)
         root = QWidget()
         root.setObjectName('root')
         layout = QVBoxLayout(root)
         layout.setContentsMargins(28, 24, 28, 22)
         layout.setSpacing(18)
-        title = QLabel('Shopee / Checkout terjadwal')
+        header = QHBoxLayout()
+        title = QLabel('Flashsale Lokal')
         title.setObjectName('title')
-        layout.addWidget(title)
+        header.addWidget(title)
+        header.addStretch()
+        self.clock_badge = QLabel()
+        self.clock_badge.setObjectName('clock')
+        header.addWidget(self.clock_badge)
+        layout.addLayout(header)
         sub = QLabel('Login → periksa produk → atur pembelian → pantau proses. Pembayaran kamu lakukan sendiri.')
         sub.setObjectName('subtitle')
         layout.addWidget(sub)
+        navigation = QHBoxLayout()
+        layout.addLayout(navigation)
         split = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(split, 1)
         left = QWidget()
@@ -92,6 +109,7 @@ class Window(QMainWindow):
         scroll.setMinimumWidth(470)
 
         frame, box = section('01  Akun Shopee', 'Gunakan tab Shopee yang sudah login di Chrome milikmu. Koneksi dipasangkan secara lokal melalui ekstensi.')
+        account_section = frame
         self.source = QComboBox()
         self.source.addItems(['Chrome saya — tab yang sudah login', 'Browser aplikasi — sesi terpisah'])
         box.addWidget(self.source)
@@ -243,6 +261,7 @@ class Window(QMainWindow):
         self.resume = QPushButton('Lanjutkan')
         self.resume.setEnabled(False)
         self.stop = QPushButton('Hentikan tugas')
+        self.stop.setObjectName('stop')
         row.addWidget(self.browser)
         row.addWidget(self.resume)
         row.addWidget(self.stop)
@@ -254,6 +273,7 @@ class Window(QMainWindow):
         self.logs.setReadOnly(True)
         self.logs.setMaximumBlockCount(300)
         self.logs.setMinimumHeight(160)
+        self.logs.setPlaceholderText('Aktivitas bot ditampilkan di sini setelah sesi dimulai.')
         box.addWidget(self.logs, 1)
         report_button = QPushButton('Buka laporan pengujian terakhir')
         report_button.clicked.connect(self.open_report)
@@ -262,6 +282,13 @@ class Window(QMainWindow):
         warning.setWordWrap(True)
         warning.setObjectName('subtitle')
         box.addWidget(warning)
+        for caption, target in [('01  Hubungkan akun', account_section),
+                                ('02  Pilih produk', self.product_section),
+                                ('03  Atur pembelian', self.purchase_section)]:
+            button = QPushButton(caption)
+            button.setObjectName('navigation')
+            button.clicked.connect(lambda checked=False, section=target: scroll.ensureWidgetVisible(section, 0, 24))
+            navigation.addWidget(button)
         split.setSizes([530, 610])
         self.setCentralWidget(root)
         self.setStyleSheet(STYLE)
@@ -454,6 +481,7 @@ class Window(QMainWindow):
         self.update_time_hint()
 
     def update_time_hint(self):
+        self.clock_badge.setText(datetime.now(ZONE).strftime('%H:%M:%S') + ' WIB')
         if self.execution.currentIndex() == 1:
             self.time_hint.setText('Tugas dimulai segera setelah kamu menekan tombol di bawah.')
             return
