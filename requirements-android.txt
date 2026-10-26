@@ -1,0 +1,2 @@
+-r requirements.txt
+Appium-Python-Client>=5,<6

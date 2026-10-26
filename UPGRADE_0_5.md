@@ -1,0 +1,19 @@
+# Pembaruan 0.5.0
+
+Dukungan varian mengenali tombol Shopee modern selection-box-selected dan tombol lama product-variation. Pilihan dashboard juga diterapkan ke halaman produk untuk memperbarui ketersediaan kelompok berikutnya. Kelompok disimpan dengan cakupan masing-masing sehingga label sama di dua kelompok tidak tercampur. Kolom jumlah yang masih disabled sebelum pemilihan ukuran tidak lagi menyebabkan verifikasi produk gagal. Struktur ukuran asli WWC disimpan sebagai fixture, bukan data akun.
+
+Mode jadwal dapat menyiapkan produk, keranjang, dan pembayaran sebelum waktu mulai. Tidak ada Buat Pesanan ditekan saat persiapan. Saat jadwal tiba, bot memeriksa kembali produk, jumlah, varian, harga, dan batas total. Pembacaan checkout untuk bridge protokol 7 digabung menjadi satu snapshot DOM. Benchmark lokal: 23 permintaan menjadi 1, median 22,05 ms menjadi 1,10 ms pada fixture. Ini bukan benchmark jaringan Shopee dan bukan jaminan transaksi <=3 detik.
+
+Pilihan koin baru bersifat opsional. Pada checkout yang disiapkan sebelum jadwal, pilihan koin diubah satu kali sekitar satu detik sebelum jadwal; pada mode langsung, diubah saat proses mencapai checkout. Bot membaca kembali status pilihan dan total. Jika total masih di atas batas, bot menunggu paling lama 10 detik lalu menolak pembelian mahal. Tetapkan batas total sesuai harga flash sale yang diinginkan ditambah ongkir dan biaya. Perubahan koin tidak menjamin harga promo tersedia atau stok dialokasikan.
+
+Pesan tepat “Beberapa barang habis terjual dalam proses pemesanan...” dikenali. Bot menekan OK dalam lingkup dialog tersebut, mencatat REJECTED_STOCK, memeriksa ulang produk/metode/total, lalu mencoba kembali. Default tiga percobaan, dapat diatur 1–10, jeda 500 ms. Timeout, jaringan putus, dan hasil ambigu tidak memicu pengulangan final. Pesanan UNKNOWN/PENDING_PAYMENT tetap memblokir duplikat produk tersebut.
+
+CAPTCHA/verifikasi tetap dikerjakan manusia. Gambar monitoring hanya aktif saat tantangan terlihat. Bot memeriksa ulang dan melanjutkan otomatis setelah tantangan hilang. Timeout konfirmasi tidak menghabiskan waktu yang digunakan guard untuk menunggu tantangan. Tes lokal memakai tantangan fixture yang dihapus untuk menyimulasikan penyelesaian pengguna; bukan bukti pengujian CAPTCHA Shopee asli.
+
+Konfirmasi setelah redirect pembayaran kembali ke daftar Belum Bayar Shopee, mencocokkan produk dan jumlah secara unik, lalu memeriksa status, nomor pesanan, dan waktu pembuatan pada detail terbaru. Tidak ada izin host baru untuk situs pembayaran dan tidak ada tombol pembayaran ditekan. Jika bukti tidak cukup, hasil tetap UNKNOWN dan tidak dipesan ulang.
+
+Laporan latest-run.json menambahkan click_to_submit_ms, release_to_submit_ms, confirmation_elapsed_ms, order_id, dan konfigurasi persiapan/koin/retry. Waktu klik-ke-submit mencakup persiapan dan penantian jadwal; release-ke-submit dihitung setelah waktu jadwal tiba. Jangan membandingkan dua metrik tersebut seolah-olah sama. Konfirmasi-pending memakai waktu terpisah karena memerlukan halaman hasil dimuat.
+
+60 tes Python dan 6 tes JavaScript lulus. Pengujian aktual versi 0.5.0 untuk pemesanan varian, waktu <=3 detik, promo flash sale, serta CAPTCHA asli belum dikonfirmasi. Riwayat keberhasilan pesanan nyata versi sebelumnya tetap tercatat pada TESTING.md. Tidak ada pesanan baru dibuat oleh agen selama pembaruan ini.
+
+Gunakan dashboard baru dan ekstensi 0.5.0/protokol 7. Reload ekstensi di chrome://extensions, pasangkan kode dashboard baru, periksa login, verifikasi produk, pilih tiap varian, pembayaran, jumlah dan batas total, lalu jalankan. Untuk flash sale terjadwal, aktifkan persiapan checkout lebih awal; aktifkan opsi koin bila diperlukan. Mulai dengan mode berhenti sebelum Buat Pesanan bila ingin memeriksa pilihan tanpa membuat pesanan.

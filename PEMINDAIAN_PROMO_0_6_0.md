@@ -1,0 +1,17 @@
+# Pemindaian promo 0.6.0
+
+Pengguna meminta pencarian varian/paket Redmi pada listing https://shopee.co.id/product/1367937206/28340353844 untuk jadwal 12.00 WIB dengan batas total Rp1.000.000. Harga dan SKU flash sale listing tersebut belum terkonfirmasi: pembaca web tidak dapat mengakses listing, konektor Chrome mengembalikan Debugger unattached, dan hasil mesin pencari yang tersedia merupakan listing penjual lain atau informasi pengiriman. Data listing lain tidak dipakai untuk memilih SKU ini.
+
+Dashboard menyediakan tanggal/jam promo dan tombol Cari varian & paket flash sale — tanpa membeli. Pemindai membaca kombinasi opsi yang tampil melalui sesi Chrome pengguna, paling banyak 64 kombinasi (batas backend 128), memperbarui pilihan yang saling bergantung, dan menyimpan bukti harga/jadwal yang tampil serta penawaran terstruktur publik. Pemindaian tidak memakai cookie ekspor, endpoint privat, atau melewati CAPTCHA. CAPTCHA yang muncul tetap dikerjakan pengguna.
+
+Laporan tersimpan di .local/latest-promotion.json dan dapat dibuka dari dashboard. Kolom evidence adalah petunjuk yang tampil, bukan bukti pengikatan promo ke SKU. Penawaran dipastikan hanya jika produk induk sesuai listing, label varian cocok tepat, ada SKU eksplisit, penawaran berlabel flash sale, mata uang IDR, harga produk tidak melebihi batas, validFrom cocok tepat dengan tanggal/jam target beserta zona waktunya, dan availability menyatakan InStock. Penawaran ganda atau pemindaian terpotong tidak menghasilkan pemilihan otomatis.
+
+Jika tepat satu kombinasi memenuhi bukti tersebut, aplikasi mengisi pilihan kandidat pada dashboard, menyamakan tanggal/jam jadwal, dan menyiapkan checkout tanpa menekan Buat Pesanan. Ongkir/biaya belum bisa disimpulkan dari harga produk; total final tetap wajib <=Rp1.000.000 saat pemesanan. Memindai tidak mengaktifkan jadwal atau membentuk pesanan dengan sendirinya.
+
+Jika bukti tidak cukup, hasil PROMO BELUM PASTI ditampilkan. Nama produk PROMO SPECIAL, banner umum, harga termurah, jam pada informasi garansi pengiriman, dan perubahan koin tidak dianggap sebagai bukti SKU promo. Paket murah bisa berupa aksesori. Jika Shopee belum mempublikasikan pengikatan promo ke varian tertentu, aplikasi tidak dapat memastikan informasi itu sebelum diterbitkan. Parser tidak mengklaim dapat menemukan SKU tersembunyi.
+
+Versi ekstensi 0.6.0 memakai protokol 8 dengan izin host yang sama; tambahan operasi hanya membaca DOM informasi promo. Muat ulang ekstensi lalu pasangkan kode dashboard baru. Isi listing dan batas, pilih tanggal/jam promo, periksa login, kemudian jalankan pemindaian. Jangan menyamakan hasil tes fixture dengan pembuktian listing live.
+
+90 tes Python dan 6 JavaScript lulus, mencakup kandidat eksplisit tunggal yang boleh menyiapkan checkout, banner saja yang tidak boleh, pemindaian terpotong, varian berbeda, aksesori, tanggal/zona waktu/harga/mata uang/stok yang salah, dan pilihan kandidat yang harus tampil sama di dashboard. Tes memakai data sintetis yang sengaja ditandai, bukan data promo Redmi yang diverifikasi. Belum ada SKU promo Redmi atau pesanan baru yang dikonfirmasi agen dalam perubahan ini.
+
+Referensi format publik: [Schema.org hasVariant](https://schema.org/hasVariant) menghubungkan varian ke kelompok produk; [Schema.org validFrom](https://schema.org/validFrom) menyatakan awal berlakunya penawaran. Referensi tersebut tidak membuktikan bahwa listing Shopee tertentu menerbitkan semua field yang diperlukan.
