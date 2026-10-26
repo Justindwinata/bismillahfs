@@ -80,10 +80,26 @@ function executeDom(request) {
     const headings=value=>[...document.querySelectorAll('h2,h3')].filter(e=>visible(e)&&normal(e.innerText)===value);
     const totals=[...document.querySelectorAll('h3')].filter(e=>visible(e)&&normal(e.innerText)==='Total Pembayaran');
     const buttons=[...document.querySelectorAll('button,[role="button"]')].filter(e=>visible(e)&&normal(name(e)).toLowerCase()==='buat pesanan');
-    let row=images.length===1?images[0]:null;
-    while(row && !(row.children.length===5 && row.children[0].contains(images[0]))) row=row.parentElement;
+    const rows=[],seen=new Set();
+    let unknown=0;
+    for(const image of images){
+      let row=image;
+      while(row && !(row.children.length===5 && row.children[0].contains(image))) row=row.parentElement;
+      if(!row || [...row.querySelectorAll('img[alt="product image"]')].filter(visible).length!==1){unknown++;continue;}
+      if(seen.has(row))continue;
+      seen.add(row);
+      const columns=[...row.children].map(e=>normal(e.innerText));
+      // Only an explicit, rendered gift badge plus absent/zero price permits an
+      // accompanying gift. A product title containing "gift" is not evidence.
+      const badge=[...row.children[0].querySelectorAll('span,label')].some(e=>visible(e)&&/^(?:Hadiah|Free Gift|Gift)$/i.test(normal(e.innerText)));
+      const free=value=>!value || /^(?:Rp\s*)?0(?:[,.]0{1,2})?$|^Gratis$|^Free$/i.test(value);
+      const gift=badge&&free(columns[2])&&free(columns[4])&&/^[1-9]\d*$/.test(columns[3]);
+      rows.push({columns,gift});
+    }
+    const paid=rows.filter(row=>!row.gift);
     return {url:location.href,complete:headings('Produk Dipesan').length===1&&headings('Metode Pembayaran').length===1&&totals.length===1&&buttons.length===1,
-      image_count:images.length,columns:row?[...row.children].map(e=>normal(e.innerText)):null,
+      image_count:images.length,paid_count:paid.length,gift_count:rows.length-paid.length,unknown_count:unknown,
+      columns:paid.length===1?paid[0].columns:null,
       total:totals.length===1?normal(totals[0].nextElementSibling?.innerText):null,
       submit_enabled:buttons.length===1&&!buttons[0].disabled&&buttons[0].getAttribute('aria-disabled')!=='true'};
   }

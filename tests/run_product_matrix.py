@@ -99,6 +99,7 @@ def main():
             print(product['name'],sum(r['product']==product['name'] for r in results),'cases',flush=True)
         browser.close()
     report={'scope':'Local DOM simulation using observed public product groups; no live server order verification','cases':results,'passed':sum(r['result']=='pass' for r in results),'total':len(results)}
+    (ROOT/'.local').mkdir(parents=True, exist_ok=True, mode=0o700)
     (ROOT/'.local/product-matrix-results.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
     print(json.dumps({k:v for k,v in report.items() if k!='cases'}))
     if report['passed']!=report['total']:

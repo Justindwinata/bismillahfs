@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Flashsale Lokal — Shopee Bridge",
   "description": "Hubungkan satu tab Shopee yang kamu pilih ke dashboard lokal, tanpa menyalin cookie.",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["https://shopee.co.id/*"],

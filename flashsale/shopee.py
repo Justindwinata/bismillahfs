@@ -565,15 +565,36 @@ class ShopeeSession(QThread):
         if self.bridge and self.bridge.client_protocol >= 7:
             state = self.page.checkout_snapshot()
             columns = state.get('columns')
-            if (not is_checkout_url(state.get('url', '')) or not state.get('complete') or state.get('image_count') != 1
+            paid_count = state.get('paid_count', state.get('image_count'))
+            if (not is_checkout_url(state.get('url', '')) or not state.get('complete') or paid_count != 1
+                    or state.get('unknown_count', 0) != 0
                     or not isinstance(columns, list) or len(columns) != 5 or columns[0] != self.data['name']):
                 raise ValueError('Identitas satu produk target pada checkout belum terkonfirmasi.')
             validate_checkout_columns(columns, config)
             return
         checkout_controls(self.page)
         images = self.page.locator('img[alt="product image"]')
-        if sum(images.nth(i).is_visible() for i in range(min(images.count(), 50))) != 1:
-            raise ValueError('Checkout harus berisi tepat satu baris produk target.')
+        paid_images = []
+        for i in range(images.count()):
+            image = images.nth(i)
+            if not image.is_visible():
+                continue
+            row = image
+            for _ in range(10):
+                row = row.locator('..')
+                cols = row.locator(':scope > *')
+                if cols.count() == 5 and cols.nth(0).locator('img[alt="product image"]').count() == 1:
+                    badge = cols.nth(0).locator('span,label').filter(has_text=re.compile(r'^(?:Hadiah|Free Gift|Gift)$', re.I))
+                    explicit = any(badge.nth(j).is_visible() for j in range(badge.count()))
+                    free = lambda text: not text or re.fullmatch(r'(?:Rp\s*)?0(?:[,.]0{1,2})?|Gratis|Free', text, re.I)
+                    if not (explicit and free(cols.nth(2).inner_text().strip()) and free(cols.nth(4).inner_text().strip())
+                            and re.fullmatch(r'[1-9]\d*', cols.nth(3).inner_text().strip())):
+                        paid_images.append(image)
+                    break
+            else:
+                raise ValueError('Baris tambahan pada checkout belum dikenali sebagai hadiah gratis.')
+        if len(paid_images) != 1:
+            raise ValueError('Checkout harus berisi tepat satu baris produk target berbayar.')
         leaf = unique_visible(self.page.get_by_text(self.data['name'], exact=True))
         if leaf is None:
             raise ValueError('Nama produk target tidak ditemukan secara unik pada checkout.')

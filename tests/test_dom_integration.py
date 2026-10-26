@@ -170,6 +170,63 @@ class NativeDomIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Jumlah produk'):
             self.session.verify_checkout_item(self.config)
 
+    def add_checkout_gift(self, badge='Hadiah', price='', subtotal='', quantity='1'):
+        self.dom.locator('.ordered-row').evaluate('''(row, values) => {
+          const gift=document.createElement('div');gift.className='gift-row';
+          gift.innerHTML='<div><img alt="product image" width="40" height="40"><span class="badge"></span><span>[Gift Not For Sale] Bonus</span></div><div></div><div></div><div></div><div></div>';
+          gift.querySelector('.badge').textContent=values[0];
+          gift.children[2].textContent=values[1];gift.children[4].textContent=values[2];gift.children[3].textContent=values[3];
+          row.after(gift);
+        }''', [badge, price, subtotal, quantity])
+
+    def test_checkout_accepts_explicit_free_gifts_and_keeps_target_validation(self):
+        self.checkout()
+        self.session.bridge=self.bridge
+        self.add_checkout_gift()
+        self.add_checkout_gift('Free Gift', 'Rp0', 'Rp0', '2')
+        snapshot=self.session.page.checkout_snapshot()
+        self.assertEqual((snapshot['paid_count'],snapshot['gift_count'],snapshot['unknown_count']),(1,2,0))
+        self.session.verify_checkout_item(self.config)
+        self.dom.locator('#ordered-quantity').evaluate("e=>e.innerText='3'")
+        with self.assertRaisesRegex(ValueError,'Jumlah produk'):
+            self.session.verify_checkout_item(self.config)
+
+    def test_checkout_gift_badge_never_hides_charged_or_unmarked_extra_item(self):
+        self.checkout()
+        self.session.bridge=self.bridge
+        for badge,price,subtotal,quantity in [('Hadiah','Rp1.000','Rp1.000','1'),
+                                                ('Hadiah','','Rp1','1'),
+                                                ('','','','1'),('Hadiah','','','0')]:
+            with self.subTest(badge=badge,price=price,subtotal=subtotal,quantity=quantity):
+                self.dom.locator('.gift-row').evaluate_all('rows=>rows.forEach(e=>e.remove())')
+                self.add_checkout_gift(badge,price,subtotal,quantity)
+                with self.assertRaisesRegex(ValueError,'Identitas satu produk'):
+                    self.session.verify_checkout_item(self.config)
+
+    def test_checkout_rejects_unrecognized_gift_structure_and_duplicate_target(self):
+        self.checkout()
+        self.session.bridge=self.bridge
+        self.dom.locator('.ordered-row').evaluate("e=>e.after(e.cloneNode(true))")
+        with self.assertRaisesRegex(ValueError,'Identitas satu produk'):
+            self.session.verify_checkout_item(self.config)
+        self.dom.locator('.ordered-row').last.evaluate('e=>e.remove()')
+        self.dom.locator('#checkout').evaluate("e=>e.insertAdjacentHTML('beforeend','<div><img alt=\"product image\" width=40 height=40><span>Hadiah</span></div>')")
+        with self.assertRaisesRegex(ValueError,'Identitas satu produk'):
+            self.session.verify_checkout_item(self.config)
+
+    def test_checkout_native_browser_accepts_gift_but_rejects_paid_extra(self):
+        self.checkout()
+        self.dom.route('https://shopee.co.id/checkout',lambda route:route.fulfill(body='<html></html>'))
+        markup=self.dom.content()
+        self.dom.goto('https://shopee.co.id/checkout')
+        self.dom.set_content(markup)
+        self.session.page=self.dom
+        self.add_checkout_gift()
+        self.session.verify_checkout_item(self.config)
+        self.dom.locator('.gift-row > :nth-child(5)').evaluate("e=>e.innerText='Rp100'")
+        with self.assertRaisesRegex(ValueError,'tepat satu baris'):
+            self.session.verify_checkout_item(self.config)
+
     def challenge_state(self, markup):
         self.dom.set_content(markup)
         return self.dom.evaluate('(' + self.source + ')',
