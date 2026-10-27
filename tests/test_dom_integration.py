@@ -227,6 +227,47 @@ class NativeDomIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'tepat satu baris'):
             self.session.verify_checkout_item(self.config)
 
+    def test_final_quote_batches_four_bridge_reads_into_one_without_caching(self):
+        self.checkout()
+        self.session.bridge=self.bridge
+        self.config['limit']=1000000
+        original=self.bridge.request
+        calls=[]
+        def counted(operation, **arguments):
+            calls.append(operation)
+            return original(operation, **arguments)
+        self.bridge.request=counted
+        self.session.verify_checkout_item(self.config)
+        total,submit=checkout_controls(self.session.page)
+        total.locator('xpath=following-sibling::*[1]').inner_text()
+        submit.is_enabled()
+        self.assertEqual(len(calls),4)
+        calls.clear()
+        quote,_=self.session.verified_checkout_quote(self.config)
+        self.assertEqual(str(quote),'797500')
+        self.assertEqual(calls,['checkout'])
+        self.dom.locator('h3').filter(has_text='Total Pembayaran').evaluate("e=>e.nextElementSibling.innerText='Rp1.100.000'")
+        with self.assertRaisesRegex(ValueError,'batas harga'):
+            self.session.verified_checkout_quote(self.config)
+
+    def test_batched_final_quote_preserves_variant_quantity_gift_and_disabled_checks(self):
+        self.checkout()
+        self.session.bridge=self.bridge
+        self.config['limit']=1000000
+        self.add_checkout_gift()
+        self.session.verified_checkout_quote(self.config)
+        self.dom.locator('#ordered-quantity').evaluate("e=>e.innerText='3'")
+        with self.assertRaisesRegex(ValueError,'Jumlah produk'):
+            self.session.verified_checkout_quote(self.config)
+        self.dom.locator('#ordered-quantity').evaluate("e=>e.innerText='2'")
+        self.config['variants']=['Wrong variant']
+        with self.assertRaisesRegex(ValueError,'Varian'):
+            self.session.verified_checkout_quote(self.config)
+        self.config['variants']=[]
+        self.dom.get_by_role('button',name='Buat Pesanan',exact=True).evaluate('e=>e.disabled=true')
+        with self.assertRaisesRegex(ValueError,'belum siap'):
+            self.session.verified_checkout_quote(self.config)
+
     def challenge_state(self, markup):
         self.dom.set_content(markup)
         return self.dom.evaluate('(' + self.source + ')',

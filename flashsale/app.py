@@ -75,7 +75,7 @@ class Window(QMainWindow):
         self.last_frame = None
         self.active = False
         self.closing = False
-        self.setWindowTitle('Flashsale Lokal | Shopee 0.6.7')
+        self.setWindowTitle('Flashsale Lokal | Shopee 0.6.8')
         self.resize(1240, 900)
         root = QWidget()
         root.setObjectName('root')

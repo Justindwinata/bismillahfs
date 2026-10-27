@@ -559,11 +559,11 @@ class ShopeeSession(QThread):
             self.cancel_event.wait(.1)
         self.emit_status('KERANJANG TERVERIFIKASI', f'Produk target dipilih sendiri, jumlah {config["quantity"]} terkonfirmasi.')
 
-    def verify_checkout_item(self, config):
+    def verify_checkout_item(self, config, checkout_state=None):
         if not config['variants'] and self.data.get('fixed_variants'):
             config = {**config, 'variants': self.data['fixed_variants']}
         if self.bridge and self.bridge.client_protocol >= 7:
-            state = self.page.checkout_snapshot()
+            state = self.page.checkout_snapshot() if checkout_state is None else checkout_state
             columns = state.get('columns')
             paid_count = state.get('paid_count', state.get('image_count'))
             if (not is_checkout_url(state.get('url', '')) or not state.get('complete') or paid_count != 1
@@ -608,6 +608,25 @@ class ShopeeSession(QThread):
                 validate_checkout_columns([columns.nth(i).inner_text().strip() for i in range(5)], config)
                 return
         raise ValueError('Ringkasan jumlah dan subtotal produk checkout belum terbaca secara tegas.')
+
+    def verified_checkout_quote(self, config):
+        """Read one fresh checkout snapshot; never cache a quote across actions."""
+        if isinstance(self.page, ChromePage) and self.bridge and self.bridge.client_protocol >= 7:
+            state = self.page.checkout_snapshot()
+            self.verify_checkout_item(config, checkout_state=state)
+            total = rupiah(state.get('total') or '')
+            enabled = state.get('submit_enabled') is True
+            submit = self.page.get_by_role('button', name=re.compile(r'^Buat Pesanan$', re.I))
+        else:
+            self.verify_checkout_item(config)
+            total_label, submit = checkout_controls(self.page)
+            total = rupiah(total_label.locator('xpath=following-sibling::*[1]').inner_text().strip())
+            enabled = submit.is_enabled()
+        if not Decimal('0') < total <= Decimal(str(config['limit'])):
+            raise ValueError('Total akhir di luar batas harga yang kamu tetapkan.')
+        if not enabled:
+            raise ValueError('Tombol Buat Pesanan belum siap.')
+        return total, submit
 
     def select_payment(self, label):
         checkout_controls(self.page)
@@ -884,14 +903,7 @@ class ShopeeSession(QThread):
             if not price_ready:
                 raise ValueError('Harga checkout belum berubah sesuai batas total dalam 10 detik; pesanan belum dikirim.')
         self.guard()
-        self.verify_checkout_item(config)
-        total_label, submit = checkout_controls(self.page)
-        total_text = total_label.locator('xpath=following-sibling::*[1]').inner_text().strip()
-        total = rupiah(total_text)
-        if not Decimal('0') < total <= Decimal(str(config['limit'])):
-            raise ValueError('Total akhir di luar batas harga yang kamu tetapkan.')
-        if not submit.is_enabled():
-            raise ValueError('Tombol Buat Pesanan belum siap.')
+        total, submit = self.verified_checkout_quote(config)
         if config.get('stop_before_submit'):
             self.emit_status('CHECKOUT SIAP', 'Mode pengujian berhenti sebelum Buat Pesanan. Total dan pilihan pembayaran sudah diperiksa; pesanan belum dikirim.')
             return
